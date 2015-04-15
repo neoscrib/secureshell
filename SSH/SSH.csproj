@@ -1,0 +1,232 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{32C530B8-4215-4BC5-9626-13EE1B60EB55}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>SSH</RootNamespace>
+    <AssemblyName>SSH</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyOriginatorKeyFile>sshKeyFile.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Attributes\Attributes.cs" />
+    <Compile Include="DiffieHellman\ECDSAManaged.cs" />
+    <Compile Include="DirectTcpIp.cs" />
+    <Compile Include="DynamicSocks.cs" />
+    <Compile Include="Encryption\BlowfishManaged.cs" />
+    <Compile Include="Encryption\Blowfish_CBC.cs" />
+    <Compile Include="Identity\IdentityFile.cs" />
+    <Compile Include="Identity\IIdentityFile.cs" />
+    <Compile Include="Identity\OpenSSHDSSIdentity.cs" />
+    <Compile Include="Identity\OpenSSHECDSAIdentity.cs" />
+    <Compile Include="Identity\OpenSSHIdentity.cs" />
+    <Compile Include="Identity\OpenSSHRSAIdentity.cs" />
+    <Compile Include="Identity\PuttyDSSIdentity.cs" />
+    <Compile Include="Identity\PuttyIdentity.cs" />
+    <Compile Include="Identity\PuttyRSAIdentity.cs" />
+    <Compile Include="IO\AutoStreamReader.cs" />
+    <Compile Include="IO\SftpStream.cs" />
+    <Compile Include="KnownHosts.cs" />
+    <Compile Include="Mac\HMACRIPEMD160.cs" />
+    <Compile Include="Mac\HMACSHA256.cs" />
+    <Compile Include="Mac\HMACSHA384.cs" />
+    <Compile Include="Mac\HMACSHA512.cs" />
+    <Compile Include="Packets\IPacket.cs" />
+    <Compile Include="Packets\ISshChannelMessage.cs" />
+    <Compile Include="Packets\MessageCode.cs" />
+    <Compile Include="Packets\Packet.cs" />
+    <Compile Include="Packets\PacketAttribute.cs" />
+    <Compile Include="Packets\SftpAttrs.cs" />
+    <Compile Include="Packets\SftpClose.cs" />
+    <Compile Include="Packets\SftpData.cs" />
+    <Compile Include="Packets\SftpFileAttributes.cs" />
+    <Compile Include="Packets\SftpFileInfo.cs" />
+    <Compile Include="Packets\SftpHandle.cs" />
+    <Compile Include="Packets\SftpInit.cs" />
+    <Compile Include="Packets\SftpMakeDir.cs" />
+    <Compile Include="Packets\SftpMessageCode.cs" />
+    <Compile Include="Packets\SftpName.cs" />
+    <Compile Include="Packets\SftpOpen.cs" />
+    <Compile Include="Packets\SftpOpenDirectory.cs" />
+    <Compile Include="Packets\SftpPacket.cs" />
+    <Compile Include="Packets\SftpRead.cs" />
+    <Compile Include="Packets\SftpReadDirectory.cs" />
+    <Compile Include="Packets\SftpRemove.cs" />
+    <Compile Include="Packets\SftpRemoveDir.cs" />
+    <Compile Include="Packets\SftpRename.cs" />
+    <Compile Include="Packets\SftpStat.cs" />
+    <Compile Include="Packets\SftpStatus.cs" />
+    <Compile Include="Packets\SftpStatusCode.cs" />
+    <Compile Include="Packets\SftpWrite.cs" />
+    <Compile Include="Packets\SshChannelClose.cs" />
+    <Compile Include="Packets\SshChannelData.cs" />
+    <Compile Include="Packets\SshChannelEOF.cs" />
+    <Compile Include="Packets\SshChannelExtendedData.cs" />
+    <Compile Include="Packets\SshChannelOpen.cs" />
+    <Compile Include="Packets\SshChannelOpenConfirmation.cs" />
+    <Compile Include="Packets\SshChannelOpenDirectTcpIP.cs" />
+    <Compile Include="Packets\SshChannelOpenFailure.cs" />
+    <Compile Include="Packets\SshChannelOpenForwardedTcpIp.cs" />
+    <Compile Include="Packets\SshChannelRequest.cs" />
+    <Compile Include="Packets\SshChannelRequestExec.cs" />
+    <Compile Include="Packets\SshChannelRequestExitSignal.cs" />
+    <Compile Include="Packets\SshChannelRequestExitStatus.cs" />
+    <Compile Include="Packets\SshChannelRequestKeepAlive.cs" />
+    <Compile Include="Packets\SshChannelRequestPty.cs" />
+    <Compile Include="Packets\SshChannelRequestSftp.cs" />
+    <Compile Include="Packets\SshChannelSuccess.cs" />
+    <Compile Include="Packets\SshChannelWindowAdjust.cs" />
+    <Compile Include="Packets\SshDebug.cs" />
+    <Compile Include="Packets\SshDHGexInit.cs" />
+    <Compile Include="Packets\SshDHGexReply.cs" />
+    <Compile Include="Packets\SshDHGexRequest.cs" />
+    <Compile Include="Packets\SshDHKexInit.cs" />
+    <Compile Include="Packets\SshDHKexReply.cs" />
+    <Compile Include="Packets\SshDHKexReplyGroup.cs" />
+    <Compile Include="Packets\SshDisconnect.cs" />
+    <Compile Include="Packets\SshECDHKexInit.cs" />
+    <Compile Include="Packets\SshECDHKexReply.cs" />
+    <Compile Include="Packets\SshGlobalRequestTcpIpForward.cs" />
+    <Compile Include="Packets\SshPropertyAttribute.cs" />
+    <Compile Include="Packets\SshGlobalRequest.cs" />
+    <Compile Include="Packets\SshIdentification.cs" />
+    <Compile Include="Packets\SshIgnore.cs" />
+    <Compile Include="Packets\SshKeyExchangeInit.cs" />
+    <Compile Include="Packets\SshNewKeys.cs" />
+    <Compile Include="Packets\SshRequestFailure.cs" />
+    <Compile Include="Packets\SshRequestSuccess.cs" />
+    <Compile Include="Packets\SshServiceAccept.cs" />
+    <Compile Include="Packets\SshServiceRequest.cs" />
+    <Compile Include="Packets\SshUserAuthBanner.cs" />
+    <Compile Include="Packets\SshUserAuthFailure.cs" />
+    <Compile Include="Packets\SshUserAuthPublicKeyOk.cs" />
+    <Compile Include="Packets\SshUserAuthRequest.cs" />
+    <Compile Include="Packets\SshUserAuthRequestPassword.cs" />
+    <Compile Include="Packets\SshUserAuthRequestPublicKey.cs" />
+    <Compile Include="Packets\SshUserAuthRequestSignaure.cs" />
+    <Compile Include="Packets\SshUserAuthSuccess.cs" />
+    <Compile Include="Packets\PacketFactory.cs" />
+    <Compile Include="Processor\AuthenticationProcessor.cs" />
+    <Compile Include="Processor\ChannelProcessor.cs" />
+    <Compile Include="Processor\DHGEProcessor.cs" />
+    <Compile Include="Processor\DHGProcessor.cs" />
+    <Compile Include="Processor\DiffieHellmanProcessor.cs" />
+    <Compile Include="Processor\ECDHProcessor.cs" />
+    <Compile Include="Processor\Exec.cs" />
+    <Compile Include="Processor\IChannelProcessor.cs" />
+    <Compile Include="Processor\IdentificationProcessor.cs" />
+    <Compile Include="Collections\BlockingQueue.cs" />
+    <Compile Include="DiffieHellman\ECDiffieHellmanManaged.cs" />
+    <Compile Include="Extensions.cs" />
+    <Compile Include="IO\NotifyStream.cs" />
+    <Compile Include="Mac\MacActivator.cs" />
+    <Compile Include="MathEC\FpBigInteger.cs" />
+    <Compile Include="MathEC\ECCurve.cs" />
+    <Compile Include="MathEC\ECPoint.cs" />
+    <Compile Include="Processor\IKeyExchangeProcessor.cs" />
+    <Compile Include="Processor\IPacketProcessor.cs" />
+    <Compile Include="Processor\KeyExchangeProcessor.cs" />
+    <Compile Include="Processor\LocalForward.cs" />
+    <Compile Include="Processor\PacketProcessor.cs" />
+    <Compile Include="Processor\SessionProcessor.cs" />
+    <Compile Include="Processor\Sftp.cs" />
+    <Compile Include="Processor\Shell.cs" />
+    <Compile Include="Processor\SocksLocalForward.cs" />
+    <Compile Include="Processor\SystemProcessor.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RemoteForward.cs" />
+    <Compile Include="Session.cs" />
+    <Compile Include="Compression\ZlibStream2.cs" />
+    <Compile Include="Encryption\AES128_CBC.cs" />
+    <Compile Include="Encryption\AES128_CTR.cs" />
+    <Compile Include="Encryption\AES192_CBC.cs" />
+    <Compile Include="Encryption\AES192_CTR.cs" />
+    <Compile Include="Encryption\AES256_CBC.cs" />
+    <Compile Include="Encryption\AES256_CTR.cs" />
+    <Compile Include="Encryption\Cast128_CBC.cs" />
+    <Compile Include="Encryption\CastManaged.cs" />
+    <Compile Include="Encryption\Cipher.cs" />
+    <Compile Include="Encryption\CipherCBC.cs" />
+    <Compile Include="Encryption\CipherCTR.cs" />
+    <Compile Include="Encryption\CipherECB.cs" />
+    <Compile Include="Encryption\TripleDES_CBC.cs" />
+    <Compile Include="Encryption\TripleDES_CTR.cs" />
+    <Compile Include="Encryption\TripleDES_ECB.cs" />
+    <Compile Include="IO\HashWriter.cs" />
+    <Compile Include="Hash\MD5.cs" />
+    <Compile Include="Hash\SHA1.cs" />
+    <Compile Include="Hash\SHA256.cs" />
+    <Compile Include="Hash\SHA384.cs" />
+    <Compile Include="Hash\SHA512.cs" />
+    <Compile Include="Mac\HMACMD5.cs" />
+    <Compile Include="Mac\HMACMD596.cs" />
+    <Compile Include="Mac\HMACSHA1.cs" />
+    <Compile Include="Mac\HMACSHA196.cs" />
+    <Compile Include="IO\MacWriter.cs" />
+    <Compile Include="IO\PacketReader.cs" />
+    <Compile Include="IO\PacketWriter.cs" />
+    <Compile Include="SshSocket.cs" />
+    <Compile Include="StatusCode.cs" />
+    <Compile Include="Threading\DataWaitHandle.cs" />
+    <Compile Include="Threading\SemaphoreWorker.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Util.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Service References\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="sshKeyFile.snk" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
