@@ -22,7 +22,7 @@ namespace SSH.Encryption
             var Key = key.Take(KeySize).ToArray();
             x = iv.Take(BlockSize).ToArray();
 
-            Cipher2 = Crypto.CreateEncryptor(Key, null);
+            CryptoTransform = Crypto.CreateEncryptor(Key, null);
         }
 
         public unsafe override void Transform(byte[] input)
@@ -30,15 +30,10 @@ namespace SSH.Encryption
             byte[] buffer = new byte[BlockSize];
             for (int i = 0; i < input.Length; i += BlockSize)
             {
-                Cipher2.TransformBlock(x, 0, BlockSize, buffer, 0);
+                CryptoTransform.TransformBlock(x, 0, BlockSize, buffer, 0);
                 input.Xor(i, buffer, 0, BlockSize);
                 x.Increment();
             }
-
-            //input.Xor(buffer, 0, buffer.Length);
-            //buffer.Xor(input, 0, input.Length);
-
-            //return buffer;
         }
 
         public override unsafe byte[] TransformFinal(byte[] input)

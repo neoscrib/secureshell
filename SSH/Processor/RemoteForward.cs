@@ -1,17 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Net;
+﻿using SSH.Packets;
 using SSH.Processor;
-using SSH.Packets;
-using System.Threading;
-using SSH.Threading;
 using System.Net.Sockets;
 
 namespace SSH
 {
-    public class RemoteForward : PacketProcessor, IDisposable
+    public class RemoteForward : PacketProcessor
     {
         private string localAddress;
         private uint localPort;
@@ -28,11 +21,6 @@ namespace SSH
             this.remotePort = remotePort;
 
             session.Socket.WritePacket(new SshGlobalRequestTcpIpForward(remoteAddress, remotePort, false));
-        }
-
-        public void Dispose()
-        {
-            throw new NotImplementedException();
         }
 
         public override bool InternalProcessPacket(IPacket p)

@@ -11,9 +11,12 @@ namespace SSH.Processor
         public int PacketCount { get; set; }
 
         private Session session;
-        private EventWaitHandle waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset);
-        private List<IPacketProcessor> add = new List<IPacketProcessor>();
-        private List<IPacketProcessor> remove = new List<IPacketProcessor>();
+        //private EventWaitHandle waitHandle = new EventWaitHandle(true, EventResetMode.AutoReset);
+        //private List<IPacketProcessor> add = new List<IPacketProcessor>();
+        //private List<IPacketProcessor> remove = new List<IPacketProcessor>();
+
+        internal delegate void PacketReceivedEventHandler(object sender, PacketProcessor.ProcessPacketEventArgs e);
+        internal event PacketReceivedEventHandler PacketReceived;
 
         public SessionProcessor(Session session)
         {
@@ -22,37 +25,44 @@ namespace SSH.Processor
 
         public new void Add(IPacketProcessor processor)
         {
-            waitHandle.WaitOne();
-            add.Add(processor);
-            waitHandle.Set();
+            this.PacketReceived += processor.ProcessPacket;
+            base.Add(processor);
+            //waitHandle.WaitOne();
+            //add.Add(processor);
+            //waitHandle.Set();
         }
 
         public new bool Remove(IPacketProcessor processor)
         {
-            waitHandle.WaitOne();
-            remove.Add(processor);
-            waitHandle.Set();
-            return true;
+            this.PacketReceived -= processor.ProcessPacket;
+            return base.Remove(processor);
+            //waitHandle.WaitOne();
+            //remove.Add(processor);
+            //waitHandle.Set();
+            //return true;
         }
 
         public void Process(IPacket p)
         {
-            waitHandle.WaitOne();
-            this.AddRange(add);
-            add.Clear();
-            waitHandle.Set();
+            //waitHandle.WaitOne();
+            //this.AddRange(add);
+            //add.Clear();
+            //waitHandle.Set();
 
-            bool handled = this.Any(processor => processor.ProcessPacket(p));
+            //bool handled = this.Any(processor => processor.ProcessPacket(p));
+            PacketReceived(session, new PacketProcessor.ProcessPacketEventArgs(p));
 
-            waitHandle.WaitOne();
-            this.RemoveAll(p1 => remove.Contains(p1));
-            remove.Clear();
-            waitHandle.Set();
+            //waitHandle.WaitOne();
+            //this.RemoveAll(p1 => remove.Contains(p1));
+            //remove.Clear();
+            //waitHandle.Set();
 
-            if (!handled)
+            if (!p.Handled)
                 throw new Exception("A packet failed to be handled by any processor.");
-            if (!this.Any(processor => processor is SystemProcessor))
+            if (session.SystemProcessor.IsClosed)
                 session.Disconnect();
+            //if (!this.Any(processor => processor is SystemProcessor))
+            //    session.Disconnect();
 
             if (++PacketCount % 500 == 0)
                 this.Sort((a, b) => b.PacketCount.CompareTo(a.PacketCount));

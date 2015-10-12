@@ -9,7 +9,7 @@ namespace SSH.IO
     {
         private static Dictionary<string, Type> types;
 
-        protected HashAlgorithm hash;
+        protected HashAlgorithm algorithm;
         protected string name;
 
         static HashWriter()
@@ -25,21 +25,21 @@ namespace SSH.IO
         protected HashWriter(HashAlgorithm h)
             : base(new CryptoStream(System.IO.Stream.Null, h, CryptoStreamMode.Write))
         {
-            hash = h;
+            algorithm = h;
         }
 
         public virtual byte[] Hash
         {
             get
             {
-                base.Close();
-                return hash.Hash;
+                algorithm.TransformFinalBlock(new byte[0], 0, 0);
+                return algorithm.Hash;
             }
         }
 
         public HashAlgorithm Algorithm
         {
-            get { return hash; }
+            get { return algorithm; }
         }
 
         public string AlgorithmName
@@ -56,6 +56,11 @@ namespace SSH.IO
         public static Type GetType(string name)
         {
             return types[name];
+        }
+
+        public void Reset()
+        {
+            algorithm.Initialize();
         }
     }
 

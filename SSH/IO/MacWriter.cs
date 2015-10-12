@@ -32,23 +32,35 @@ namespace SSH.IO
             algorithm = h;
         }
 
+        public void Reset()
+        {
+            algorithm.Initialize();
+        }
+
         public virtual byte[] Hash
         {
             get
             {
-                base.Close();
+                algorithm.TransformFinalBlock(new byte[0], 0, 0);
                 return algorithm.Hash;
             }
         }
 
-        public static MacWriter Create(string name, Type hashType, byte[] sharedSecret, byte[] exchangeHash, byte[] key)
+        public bool IsMatch(byte[] mac)
+        {
+            return Win32.NativeMethods.memcmp(mac, Hash, BlockSize) == 0;
+        }
+
+        public static MacWriter Create(string name, byte[] key)
         {
             var t = types.Where(a => a.Name == name).Single().Type;
-            var temp = (MacWriter)Activator.CreateInstance(t);
-            var keySize = temp.KeySize;
-            var key2 = KeyExchangeProcessor.ExpandKey(key, sharedSecret, exchangeHash, keySize, hashType);
+            return (MacWriter)Activator.CreateInstance(t, key);
+        }
 
-            return (MacWriter)Activator.CreateInstance(t, key2);
+        public static MacWriter Create(string name)
+        {
+            var t = types.Where(a => a.Name == name).Single().Type;
+            return (MacWriter)Activator.CreateInstance(t);
         }
 
         public static string[] Algorithms

@@ -1,17 +1,16 @@
-﻿using System;
+﻿using SSH.Packets;
+using SSH.Threading;
+using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using SSH.Packets;
-using SSH.Threading;
 
 namespace SSH.Processor
 {
     public class LocalForward : ChannelProcessor
     {
         private TcpClient client;
-        private Thread clientThread;
         private string remoteAddress;
         private uint remotePort;
         private IPEndPoint clientEndpoint;
@@ -19,6 +18,8 @@ namespace SSH.Processor
 
         private bool channelEOFSent = false;
         private bool channelCloseSent = false;
+
+        private byte[] clientBuffer = new byte[0x4000];
 
         internal LocalForward(Session session) : base(session) { }
 
@@ -44,13 +45,12 @@ namespace SSH.Processor
                     this.clientEndpoint.Address.ToString(), (uint)this.clientEndpoint.Port));
                 waitHandle.WaitOne();
 
-                this.clientThread = new Thread(new ThreadStart(HandleClient));
-                this.clientThread.Start();
+                this.client.GetStream().BeginRead(clientBuffer, 0, clientBuffer.Length, HandleClient, null);
             }
-            catch (SocketException ex)
+            catch (SocketException)
             {
-                Close(SSH.StatusCode.ConnectionRefused);
-                throw ex;
+                Close(StatusCode.ConnectionRefused);
+                throw;
             }
         }
 
@@ -62,110 +62,109 @@ namespace SSH.Processor
             this.client = client;
 
             session.Socket.WritePacket(new SshChannelOpenConfirmation(this.RemoteChannel, this.LocalChannel, 0xffffffffU, 0x4000U));
-            this.clientThread = new Thread(new ThreadStart(HandleClient));
-            this.clientThread.Start();
+            client.GetStream().BeginRead(clientBuffer, 0, clientBuffer.Length, HandleClient, null);
         }
 
-        internal void HandleClient()
+        internal void HandleClient(IAsyncResult result)
         {
             try
             {
-                var s = this.client.GetStream();
-                var buffer = new byte[1024];
-                int read = s.Read(buffer, 0, buffer.Length);
-                while (read != 0)
+                int read = 0;
+                if (this.client.Connected && (read = this.client.GetStream().EndRead(result)) > 0)
                 {
                     var data = new byte[read];
-                    Buffer.BlockCopy(buffer, 0, data, 0, read);
+                    Buffer.BlockCopy(clientBuffer, 0, data, 0, read);
                     session.Socket.WritePacket(new SshChannelData(this.RemoteChannel, data));
-                    read = s.Read(buffer, 0, buffer.Length);
+                    client.GetStream().BeginRead(clientBuffer, 0, clientBuffer.Length, new AsyncCallback(HandleClient), null);
                 }
-                if (!this.channelCloseSent)
+            }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
+            finally
+            {
+                if (!this.channelEOFSent)
                 {
                     this.channelEOFSent = true;
                     this.session.Socket.WritePacket(new SshChannelEOF(this.RemoteChannel));
                 }
             }
-            catch (InvalidOperationException) { }
-            catch (IOException) { }
         }
 
         public override void Close()
         {
-            this.client.Close();
+            if (this.client != null)
+                this.client.Close();
             base.Close();
         }
 
-        public override bool InternalProcessPacket(ISshChannelMessage p)
+        public override void OnChannelOpenConfirmation(ISshChannelMessage p)
         {
-            switch (p.Code)
-            {
-                case MessageCode.SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
-                    {
-                        var msg = (SshChannelOpenConfirmation)p;
-                        this.RemoteChannel = msg.SenderChannel;
-                        waitHandle.Set();
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_OPEN_FAILURE:
-                    {
-                        var msg = (SshChannelOpenFailure)p;
-                        waitHandle.Set(new SocketException(
-                            msg.ReasonCode == SshChannelOpenFailure.ChannelOpenFailureReasonCode.SSH_OPEN_ADMINISTRATIVELY_PROHIBITED ? 10013 :
-                            msg.ReasonCode == SshChannelOpenFailure.ChannelOpenFailureReasonCode.SSH_OPEN_CONNECT_FAILED ? 10061 :
-                            msg.ReasonCode == SshChannelOpenFailure.ChannelOpenFailureReasonCode.SSH_OPEN_UNKNOWN_CHANNEL_TYPE ? 10043 :
-                            msg.ReasonCode == SshChannelOpenFailure.ChannelOpenFailureReasonCode.SSH_OPEN_RESOURCE_SHORTAGE ? 8 : 0));
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_WINDOW_ADJUST:
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_DATA:
-                    {
-                        var msg = (SshChannelData)p;
-                        try
-                        {
-                            if (client.Connected)
-                            {
-                                var s = client.GetStream();
-                                if (s.CanWrite)
-                                    s.Write(msg.Data, 0, msg.Data.Length);
-                                else throw new IOException();
-                            }
-                            else throw new IOException();
-                        }
-                        catch (IOException)
-                        {
-                            if (!this.channelCloseSent)
-                            {
-                                this.channelCloseSent = true;
-                                session.Socket.WritePacket(new SshChannelClose(this.RemoteChannel));
-                            }
-                        }
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_EOF:
-                    {
-                        var msg = (SshChannelEOF)p;
-                        if (!this.channelEOFSent)
-                        {
-                            this.channelCloseSent = true;
-                            session.Socket.WritePacket(new SshChannelClose(this.RemoteChannel));
-                        }
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_CLOSE:
-                    {
-                        this.client.Close();
-                        if (!this.channelCloseSent)
-                        {
-                            this.channelCloseSent = true;
-                            session.Socket.WritePacket(new SshChannelClose(this.RemoteChannel));
-                        }
-                        Close(SSH.StatusCode.OK);
-                        return true;
-                    }
-            }
-            return false;
+            var msg = (SshChannelOpenConfirmation)p;
+            this.RemoteChannel = msg.SenderChannel;
+            waitHandle.Set();
         }
+
+        public override void OnChannelOpenFailure(ISshChannelMessage p)
+        {
+            var msg = (SshChannelOpenFailure)p;
+            waitHandle.Set(new SocketException(
+                msg.ReasonCode == SshChannelOpenFailure.ChannelOpenFailureReasonCode.SSH_OPEN_ADMINISTRATIVELY_PROHIBITED ? 10013 :
+                msg.ReasonCode == SshChannelOpenFailure.ChannelOpenFailureReasonCode.SSH_OPEN_CONNECT_FAILED ? 10061 :
+                msg.ReasonCode == SshChannelOpenFailure.ChannelOpenFailureReasonCode.SSH_OPEN_UNKNOWN_CHANNEL_TYPE ? 10043 :
+                msg.ReasonCode == SshChannelOpenFailure.ChannelOpenFailureReasonCode.SSH_OPEN_RESOURCE_SHORTAGE ? 8 : 0));
+        }
+
+        public override void OnChannelSuccess(ISshChannelMessage p) { }
+
+        public override void OnChannelWindowAdjust(ISshChannelMessage p) { }
+
+        public override void OnChannelData(ISshChannelMessage p)
+        {
+            var msg = (SshChannelData)p;
+            try
+            {
+                if (client.Connected)
+                {
+                    var s = client.GetStream();
+                    if (s.CanWrite)
+                        s.Write(msg.Data, 0, msg.Data.Length);
+                    else throw new IOException();
+                }
+                else throw new IOException();
+            }
+            catch (IOException)
+            {
+                if (!this.channelCloseSent)
+                {
+                    this.channelCloseSent = true;
+                    session.Socket.WritePacket(new SshChannelClose(this.RemoteChannel));
+                }
+            }
+        }
+
+        public override void OnChannelExtendedData(ISshChannelMessage p) { }
+
+        public override void OnChannelClose(ISshChannelMessage p)
+        {
+            this.client.Close();
+            if (!this.channelCloseSent)
+            {
+                this.channelCloseSent = true;
+                session.Socket.WritePacket(new SshChannelClose(this.RemoteChannel));
+            }
+            Close(SSH.StatusCode.OK);
+        }
+
+        public override void OnChannelEndOfFile(ISshChannelMessage p)
+        {
+            var msg = (SshChannelEOF)p;
+            if (!this.channelEOFSent)
+            {
+                this.channelEOFSent = true;
+                session.Socket.WritePacket(new SshChannelEOF(this.RemoteChannel));
+            }
+        }
+
+        public override void OnChannelRequest(ISshChannelMessage p) { }
     }
 }

@@ -34,6 +34,8 @@ namespace SSH.Packets
         [SshProperty(12, Raw = true, RawLength = 5)]
         public byte[] Reserved { get { return new byte[5]; } set { } }
 
+        public bool UseCompression { get; set; }
+
         public SshKeyExchangeInit()
             : base(MessageCode.SSH_MSG_KEXINIT)
         {
@@ -45,7 +47,7 @@ namespace SSH.Packets
             this.EncAlgorithmsServer = EncAlgorithmsClient;
             this.MacAlgorithmsClient = MacWriter.Algorithms;
             this.MacAlgorithmsServer = MacAlgorithmsClient;
-            this.ComAlgorithmsClient = new string[] { "none" }; //"zlib", "zlib@openssh.com" };
+            this.ComAlgorithmsClient = new string[] { "none", "zlib@openssh.com", "zlib" };
             this.ComAlgorithmsServer = ComAlgorithmsClient;
             this.LanguagesClient = LanguagesServer = new string[] { };
         }
@@ -53,6 +55,11 @@ namespace SSH.Packets
         public SshKeyExchangeInit(SshKeyExchangeInit server)
             : this()
         {
+            if (server.UseCompression)
+            {
+                this.ComAlgorithmsClient = new string[] { "zlib@openssh.com", "zlib", "none" };
+                this.ComAlgorithmsServer = ComAlgorithmsClient;
+            }
             this.KexAlgorithms = Guess(server.KexAlgorithms, this.KexAlgorithms);
             this.KeyAlgorithmsServer = Guess(server.KeyAlgorithmsServer, this.KeyAlgorithmsServer);
             this.EncAlgorithmsClient = Guess(server.EncAlgorithmsClient, this.EncAlgorithmsClient);

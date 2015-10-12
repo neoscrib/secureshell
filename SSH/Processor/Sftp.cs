@@ -1,22 +1,20 @@
-﻿using System.Collections.Generic;
+﻿using SSH.IO;
+using SSH.Packets;
+using SSH.Threading;
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
-using SSH.Packets;
-using System;
-using System.IO;
-using SSH.Threading;
-using SSH.IO;
 
 namespace SSH.Processor
 {
     public class Sftp : ChannelProcessor
     {
         internal Dictionary<uint, DataWaitHandle<SftpPacket>> WaitHandles { get { return requestWaitHandles; } }
-        //internal Dictionary<uint, Queue<SftpPacket>> Responses { get { return requestResponse; } }
 
         private EventWaitHandle waitHandle;
         private Dictionary<uint, DataWaitHandle<SftpPacket>> requestWaitHandles;
-        //private Dictionary<uint, Queue<SftpPacket>> requestResponse;
 
         private uint nextRequestId = 0;
 
@@ -25,7 +23,6 @@ namespace SSH.Processor
         {
             this.Type = ChannelType.Sftp;
             requestWaitHandles = new Dictionary<uint, DataWaitHandle<SftpPacket>>();
-            //requestResponse = new Dictionary<uint, Queue<SftpPacket>>();
             waitHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
             session.Socket.WritePacket(new SshChannelOpen("session", this.LocalChannel, 0xffffffff, 0x4000));
             waitHandle.WaitOne();
@@ -48,39 +45,12 @@ namespace SSH.Processor
             requestId = CreateRequestId();
             var waitHandle = new DataWaitHandle<SftpPacket>(false, EventResetMode.AutoReset);
             requestWaitHandles.Add(requestId, waitHandle);
-            //requestResponse.Add(requestId, new Queue<SftpPacket>());
             return requestWaitHandles[requestId];
         }
 
         internal void DestroyWaitHandle(uint requestId)
         {
             requestWaitHandles.Remove(requestId);
-            //requestResponse.Remove(requestId);
-        }
-
-        public override bool InternalProcessPacket(ISshChannelMessage p)
-        {
-            switch (p.Code)
-            {
-                case MessageCode.SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
-                    {
-                        var msg = (SshChannelOpenConfirmation)p;
-                        this.RemoteChannel = msg.SenderChannel;
-                        session.Socket.WritePacket(new SshChannelRequestSftp(this.RemoteChannel));
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_CLOSE:
-                    waitHandle.Set();
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_WINDOW_ADJUST:
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_SUCCESS:
-                    session.Socket.WritePacket(new SftpInit(this.RemoteChannel, 3));
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_DATA:
-                    return ProcessPacket((SftpPacket)p);
-            }
-            return false;
         }
 
         private bool ProcessPacket(SftpPacket p)
@@ -90,7 +60,6 @@ namespace SSH.Processor
                 case SftpMessageCode.SSH_FXP_DATA:
                     {
                         var msg = (SftpData)p;
-                        //Responses[msg.RequestId].Enqueue(msg);
                         WaitHandles[msg.RequestId].Set(msg);
                         return true;
                     }
@@ -100,21 +69,18 @@ namespace SSH.Processor
                 case SftpMessageCode.SSH_FXP_HANDLE:
                     {
                         var msg = (SftpHandle)p;
-                        //Responses[msg.RequestId].Enqueue(msg);
                         WaitHandles[msg.RequestId].Set(msg);
                         return true;
                     }
                 case SftpMessageCode.SSH_FXP_NAME:
                     {
                         var msg = (SftpName)p;
-                        //Responses[msg.RequestId].Enqueue(msg);
                         WaitHandles[msg.RequestId].Set(msg);
                         return true;
                     }
                 case SftpMessageCode.SSH_FXP_ATTRS:
                     {
                         var msg = (SftpAttrs)p;
-                        //Responses[msg.RequestId].Enqueue(msg);
                         WaitHandles[msg.RequestId].Set(msg);
                         return true;
                     }
@@ -155,10 +121,6 @@ namespace SSH.Processor
                 fi.DirectoryName = Path.GetDirectoryName(path);
                 fi.Name = Path.GetFileName(path);
                 return fi;
-            }
-            catch (Exception ex)
-            {
-                throw ex;
             }
             finally
             {
@@ -368,5 +330,37 @@ namespace SSH.Processor
             DestroyWaitHandle(requestId);
             return s;
         }
+
+        public override void OnChannelOpenConfirmation(ISshChannelMessage p)
+        {
+            var msg = (SshChannelOpenConfirmation)p;
+            this.RemoteChannel = msg.SenderChannel;
+            session.Socket.WritePacket(new SshChannelRequestSftp(this.RemoteChannel));
+        }
+
+        public override void OnChannelOpenFailure(ISshChannelMessage p) { }
+
+        public override void OnChannelSuccess(ISshChannelMessage p)
+        {
+            session.Socket.WritePacket(new SftpInit(this.RemoteChannel, 3));
+        }
+
+        public override void OnChannelWindowAdjust(ISshChannelMessage p) { }
+
+        public override void OnChannelData(ISshChannelMessage p)
+        {
+            ProcessPacket((SftpPacket)p);
+        }
+
+        public override void OnChannelExtendedData(ISshChannelMessage p) { }
+
+        public override void OnChannelClose(ISshChannelMessage p)
+        {
+            waitHandle.Set();
+        }
+
+        public override void OnChannelEndOfFile(ISshChannelMessage p) { }
+
+        public override void OnChannelRequest(ISshChannelMessage p) { }
     }
 }

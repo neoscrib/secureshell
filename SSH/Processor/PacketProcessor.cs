@@ -8,6 +8,7 @@ namespace SSH.Processor
     {
         public int PacketCount { get; set; }
         public StatusCode StatusCode { get; set; }
+        public bool IsClosed { get; set; }
 
         internal Session session;
         private EventWaitHandle waitHandle;
@@ -16,7 +17,15 @@ namespace SSH.Processor
         {
             this.session = session;
             this.session.Processors.Add(this);
-            waitHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
+            waitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        }
+
+        public void ProcessPacket(object sender, ProcessPacketEventArgs e)
+        {
+            if (!e.Packet.Handled)
+            {
+                e.Packet.Handled = ProcessPacket(e.Packet);
+            }
         }
 
         public bool ProcessPacket(IPacket p)
@@ -38,6 +47,7 @@ namespace SSH.Processor
             StatusCode = code;
             this.session.Processors.Remove(this);
             waitHandle.Set();
+            IsClosed = true;
         }
 
         public void Wait()
@@ -47,7 +57,27 @@ namespace SSH.Processor
 
         public void Dispose()
         {
-            Close();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Close();
+                waitHandle.Close();
+            }
+        }
+
+        public class ProcessPacketEventArgs : EventArgs
+        {
+            public IPacket Packet { get; set; }
+
+            public ProcessPacketEventArgs(IPacket packet)
+            {
+                this.Packet = packet;
+            }
         }
     }
 }

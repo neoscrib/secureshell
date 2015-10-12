@@ -30,7 +30,7 @@ namespace SSH.Processor
         public KeyExchangeProcessor(Session session)
             : base(session)
         {
-            waitHandle2 = new EventWaitHandle(false, EventResetMode.AutoReset);
+            waitHandle2 = new EventWaitHandle(false, EventResetMode.ManualReset);
         }
 
         public override bool InternalProcessPacket(IPacket p)
@@ -39,7 +39,10 @@ namespace SSH.Processor
             {
                 case MessageCode.SSH_MSG_KEXINIT:
                     ServerKexInit = (SshKeyExchangeInit)p;
+                    ServerKexInit.UseCompression = session.UseCompression;
                     ClientKexInit = new SshKeyExchangeInit(ServerKexInit);
+                    if (session.UseCompression)
+                        ClientKexInit.ComAlgorithmsClient = new string[] { "zlib@openssh.com", "zlib", "none" };
                     kexProcessor = KeyExchangeProcessor.Create(ClientKexInit.KexAlgorithms[0], session);
                     waitHandle2.Set();
                     session.Socket.WritePacket(ClientKexInit);
@@ -60,50 +63,58 @@ namespace SSH.Processor
             if (session.SessionId == null)
                 session.SessionId = kexProcessor.ExchangeHash;
 
+            var a1 = Cipher.Create(ClientKexInit.EncAlgorithmsClient[0]);
+            var a2 = Cipher.Create(ClientKexInit.EncAlgorithmsServer[0]);
+            var a3 = MacWriter.Create(ClientKexInit.MacAlgorithmsClient[0]);
+            var a4 = MacWriter.Create(ClientKexInit.MacAlgorithmsServer[0]);
+            var desiredLengths = new int[] { a1.BlockSize, a2.BlockSize, a1.KeySize,
+                a2.KeySize, a3.KeySize, a4.KeySize };
+
             Debug.WriteLine(string.Format("Shared Secret: {0}", kexProcessor.SharedSecret.HexDump()));
-            for (char c = 'A'; c <= 'F'; c++)
+            byte[][] keys = new byte[6][];
+            using (var hash = HashWriter.Create(ClientKexInit.KexAlgorithms[0]))
             {
-                using (var hash = HashWriter.Create(ClientKexInit.KexAlgorithms[0]))
+                var i = 0;
+                for (char c = 'A'; c <= 'F'; c++, i++)
                 {
                     hash.WriteString(kexProcessor.SharedSecret);
                     hash.Write(kexProcessor.ExchangeHash);
                     hash.Write(c);
                     hash.Write(session.SessionId);
-                    session.Keys[c - 'A'] = hash.Hash;
-                    Debug.WriteLine("Key '{0}': {1}", c, hash.Hash.HexDump());
+                    var key = hash.Hash;
+                    hash.Reset();
+                    while (key.Length < desiredLengths[i])
+                    {
+                        hash.WriteString(kexProcessor.SharedSecret);
+                        hash.Write(kexProcessor.ExchangeHash);
+                        hash.Write(key);
+                        var h = hash.Hash;
+                        var buffer = new byte[key.Length + h.Length];
+                        Buffer.BlockCopy(key, 0, buffer, 0, key.Length);
+                        Buffer.BlockCopy(h, 0, buffer, key.Length, h.Length);
+                        key = buffer;
+                        Extensions.Random.ClearBytes(buffer, 0, buffer.Length);
+                        hash.Reset();
+                    }
+
+                    keys[i] = new byte[desiredLengths[i]];
+                    Buffer.BlockCopy(key, 0, keys[i], 0, desiredLengths[i]);
+                    Extensions.Random.ClearBytes(key, 0, key.Length);
+                    Debug.WriteLine("Key '{0}': {1}", c, keys[i].HexDump());
                 }
             }
 
-            var hashType = HashWriter.GetType(ClientKexInit.KexAlgorithms[0]);
-            session.Socket.Encryptor = Cipher.Create(ClientKexInit.EncAlgorithmsClient[0], Cipher.CipherMode.Encryption,
-                hashType, kexProcessor.SharedSecret, kexProcessor.ExchangeHash, session.Keys[2], session.Keys[0]);
-            session.Socket.Decryptor = Cipher.Create(ClientKexInit.EncAlgorithmsServer[0], Cipher.CipherMode.Decryption,
-                hashType, kexProcessor.SharedSecret, kexProcessor.ExchangeHash, session.Keys[3], session.Keys[1]);
-            session.Socket.EncryptorMac = new Mac.MacActivator(ClientKexInit.MacAlgorithmsClient[0],
-                hashType, kexProcessor.SharedSecret, kexProcessor.ExchangeHash, session.Keys[4]);
-            session.Socket.DecryptorMac = new Mac.MacActivator(ClientKexInit.MacAlgorithmsServer[0],
-                hashType, kexProcessor.SharedSecret, kexProcessor.ExchangeHash, session.Keys[5]);
-        }
+            a1.Initialize(Cipher.CipherMode.Encryption, keys[2], keys[0]);
+            a2.Initialize(Cipher.CipherMode.Decryption, keys[3], keys[1]);
+            session.Socket.Encryptor = a1;
+            session.Socket.Decryptor = a2;
+            session.Socket.EncryptorMac = MacWriter.Create(ClientKexInit.MacAlgorithmsClient[0], keys[4]);
+            session.Socket.DecryptorMac = MacWriter.Create(ClientKexInit.MacAlgorithmsServer[0], keys[5]);
 
-        public static byte[] ExpandKey(byte[] key, byte[] sharedSecret, byte[] exchangeHash, int desiredLength, Type hashType)
-        {
-            var key2 = new byte[key.Length];
-            Buffer.BlockCopy(key, 0, key2, 0, key.Length);
-
-            while (key2.Length < desiredLength)
+            for (var i = 0; i < keys.Length; i++)
             {
-                using (var hw = (HashWriter)Activator.CreateInstance(hashType))
-                {
-                    hw.WriteString(sharedSecret);
-                    hw.Write(exchangeHash);
-                    hw.Write(key2);
-                    key2 = key2.Concat(hw.Hash).ToArray();
-                }
+                Extensions.Random.ClearBytes(keys[i], 0, keys[i].Length);
             }
-
-            if (key2.Length > desiredLength)
-                key2 = key2.Take(desiredLength).ToArray();
-            return key2;
         }
 
         public new void Wait()

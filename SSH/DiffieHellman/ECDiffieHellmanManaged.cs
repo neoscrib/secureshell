@@ -20,6 +20,11 @@ namespace SSH.DiffieHellman
             privateKey = key;
         }
 
+        public ECDiffieHellmanManaged(ECCurve curve)
+        {
+            privateKey = new ECDiffieHellmanManagedPrivateKey(curve);
+        }
+
         public ECDiffieHellmanManaged(int keySize)
         {
             var curve = ECCurve.secp256r1;
@@ -98,7 +103,7 @@ namespace SSH.DiffieHellman
         }
     }
 
-    class ECDiffieHellmanManagedPublicKey : ECDiffieHellmanPublicKey
+    public class ECDiffieHellmanManagedPublicKey : ECDiffieHellmanPublicKey
     {
         public ECDiffieHellmanManagedPublicKey(byte[] keyBlob)
             : base(keyBlob)

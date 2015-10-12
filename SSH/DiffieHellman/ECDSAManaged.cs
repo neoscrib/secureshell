@@ -10,6 +10,7 @@ namespace SSH.DiffieHellman
 {
     class ECDSAManaged : ECDsa
     {
+        int keySize;
         ECCurve curve;
         ECPoint q;
         BigInteger D;
@@ -19,7 +20,7 @@ namespace SSH.DiffieHellman
         public ECDSAManaged(int keySize)
             : base()
         {
-            this.KeySize = keySize;
+            this.keySize = keySize;
             switch (keySize)
             {
                 case 256: curve = ECCurve.secp256r1; break;
@@ -29,7 +30,7 @@ namespace SSH.DiffieHellman
             }
         }
 
-        public override int KeySize { get; set; }
+        public override int KeySize { get { return keySize; } set { keySize = value; } }
 
         public override string SignatureAlgorithm
         {

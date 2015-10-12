@@ -4,6 +4,7 @@ using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
 using SSH.Encryption;
+using System.Security;
 
 namespace SSH.Identity
 {
@@ -21,9 +22,7 @@ namespace SSH.Identity
 
         public OpenSSHIdentity(string path)
             : base(path)
-        {
-            this.blob = Process();
-        }
+        { }
 
         public override byte[] Process()
         {
@@ -58,6 +57,9 @@ namespace SSH.Identity
 
         public override void Decrypt()
         {
+            if (blob == null)
+                blob = Process();
+
             if (Encrypted)
             {
                 var passphrase = PassphraseFunction(this);
@@ -72,10 +74,9 @@ namespace SSH.Identity
             ExtractParameters();
         }
 
-        protected static byte[] DeriveKey(string passphrase, byte[] iv, uint keySize)
+        protected static byte[] DeriveKey(SecureString passphrase, byte[] iv, uint keySize)
         {
             byte[] iv2 = iv.Take(8).ToArray();
-            byte[] passphraseBytes = passphrase.ToByteArray();
             var md5 = new MD5CryptoServiceProvider();
             var hash = new CryptoStream(Stream.Null, md5, CryptoStreamMode.Write);
             byte[] key = new byte[keySize];
@@ -85,18 +86,25 @@ namespace SSH.Identity
                 hashesSize += MD5_HASH_BYTES;
             byte[] hashes = new byte[hashesSize];
             byte[] previous;
-            for (int index = 0; (index + MD5_HASH_BYTES) <= hashes.Length; hash.Write(previous, 0, previous.Length))
+
+            passphrase.Consume(passphraseBytes =>
             {
-                hash.Write(passphraseBytes, 0, passphraseBytes.Length);
-                hash.Write(iv2, 0, iv2.Length);
-                hash.FlushFinalBlock();
-                previous = md5.Hash;
-                md5 = new MD5CryptoServiceProvider();
-                hash = new CryptoStream(Stream.Null, md5, CryptoStreamMode.Write);
-                Buffer.BlockCopy(previous, 0, hashes, index, previous.Length);
-                index += previous.Length;
-            }
-            Buffer.BlockCopy(hashes, 0, key, 0, key.Length);
+                for (int index = 0; (index + MD5_HASH_BYTES) <= hashes.Length; hash.Write(previous, 0, previous.Length))
+                {
+                    hash.Write(passphraseBytes, 0, passphraseBytes.Length);
+                    hash.Write(iv2, 0, iv2.Length);
+                    hash.FlushFinalBlock();
+                    hash.Dispose();
+                    previous = md5.Hash;
+                    md5 = new MD5CryptoServiceProvider();
+                    hash = new CryptoStream(Stream.Null, md5, CryptoStreamMode.Write);
+                    Buffer.BlockCopy(previous, 0, hashes, index, previous.Length);
+                    index += previous.Length;
+                }
+                Buffer.BlockCopy(hashes, 0, key, 0, key.Length);
+            });
+
+            hash.Dispose();
             return key;
         }
     }

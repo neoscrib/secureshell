@@ -3,6 +3,7 @@ using System.IO;
 using System.Security.Cryptography;
 using SSH.Encryption;
 using SSH.IO;
+using System.Security;
 
 namespace SSH.Identity
 {
@@ -14,9 +15,7 @@ namespace SSH.Identity
 
         public PuttyIdentity(string path)
             : base(path)
-        {
-            this.blob = Process();
-        }
+        { }
 
         public abstract override byte[] PublicKey { get; }
 
@@ -66,6 +65,9 @@ namespace SSH.Identity
 
         public override void Decrypt()
         {
+            if (blob == null)
+                blob = Process();
+
             if (Encrypted)
             {
                 var passphrase = PassphraseFunction(this);
@@ -116,17 +118,22 @@ namespace SSH.Identity
             }
         }
 
-        protected static byte[] DeriveKey(string passphrase, uint keySize)
+        protected static byte[] DeriveKey(SecureString passphrase, uint keySize)
         {
-            byte[] data = new byte[4 + passphrase.Length];
-            Buffer.BlockCopy(passphrase.ToByteArray(), 0, data, 4, passphrase.Length);
-            var sha = new SHA1CryptoServiceProvider();
             byte[] key = new byte[keySize];
-            byte[] hash = sha.ComputeHash(data);
-            Buffer.BlockCopy(hash, 0, key, 0, hash.Length);
-            data[3] = 0x01;
-            hash = sha.ComputeHash(data);
-            Buffer.BlockCopy(hash, 0, key, hash.Length, key.Length - hash.Length);
+
+            passphrase.Consume(d =>
+            {
+                byte[] data = new byte[4 + d.Length];
+                Buffer.BlockCopy(d, 0, data, 4, d.Length);
+                var sha = new SHA1CryptoServiceProvider();
+                byte[] hash = sha.ComputeHash(data);
+                Buffer.BlockCopy(hash, 0, key, 0, hash.Length);
+                data[3] = 0x01;
+                hash = sha.ComputeHash(data);
+                Extensions.Random.ClearBytes(data, 0, data.Length);
+                Buffer.BlockCopy(hash, 0, key, hash.Length, key.Length - hash.Length);
+            });
             return key;
         }
 

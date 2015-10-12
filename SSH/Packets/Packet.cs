@@ -13,6 +13,8 @@ namespace SSH.Packets
         [SshProperty(0)]
         public MessageCode Code { get; set; }
 
+        public bool Handled { get; set; }
+
         private static Dictionary<Type, SshPropertyInfo[]> properties { get; set; }
         private static EventWaitHandle getPropertiesWaitHandle;
 
@@ -43,6 +45,7 @@ namespace SSH.Packets
                     type.Equals(typeof(string[])) ? string.Join(", ", (string[])value) :
                     type.Equals(typeof(byte[])) ? string.Format("Length: {0}", ((byte[])value).Length) + ((byte[])value).HexDump() : 
                     type.Equals(typeof(Dictionary<string, string>)) ? string.Format("\n    {0}", string.Join("\n    ", ((Dictionary<string, string>)value).Select(kvp => string.Format("{0} : {1}", kvp.Key, kvp.Value)))) :
+                    value is Enum ? string.Format("{0} ({1})", value, Convert.ToInt32(value)) :
                     value);
             }
             return s.ToString();

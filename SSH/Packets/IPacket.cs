@@ -7,6 +7,7 @@ namespace SSH.Packets
 {
     public interface IPacket
     {
+        bool Handled { get; set; }
         MessageCode Code { get; set; }
         byte[] ToSshMessage();
     }

@@ -4,6 +4,7 @@ using SSH.Encryption;
 using SSH.Mac;
 using SSH.Processor;
 
+[assembly: KeyExchange("curve25519-sha256@libssh.org", Type = typeof(ECDHProcessor), Priority = -1, Negotiable = false)] // broken
 [assembly: KeyExchange("ecdh-sha2-nistp521", Type = typeof(ECDHProcessor), Priority = 0, Negotiable = true)]
 [assembly: KeyExchange("ecdh-sha2-nistp384", Type = typeof(ECDHProcessor), Priority = 1, Negotiable = true)]
 [assembly: KeyExchange("ecdh-sha2-nistp256", Type = typeof(ECDHProcessor), Priority = 2, Negotiable = true)]

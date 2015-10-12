@@ -1,10 +1,10 @@
-﻿using System;
+﻿using SSH.IO;
+using SSH.Packets;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
-using SSH.IO;
-using SSH.Packets;
 
 namespace SSH.Processor
 {
@@ -59,71 +59,6 @@ namespace SSH.Processor
             Close(StatusCode.OK);
         }
 
-        public override bool InternalProcessPacket(ISshChannelMessage p)
-        {
-            switch (p.Code)
-            {
-                case MessageCode.SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
-                    {
-                        var msg = (SshChannelOpenConfirmation)p;
-                        this.RemoteChannel = msg.SenderChannel;
-                        session.Socket.WritePacket(new SshChannelRequestPty(this.RemoteChannel, "dumb", 80, 25, 640, 480, string.Empty));
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_SUCCESS:
-                    if (!tty_opened)
-                    {
-                        tty_opened = true;
-                        session.Socket.WritePacket(new SshChannelRequest(this.RemoteChannel, "shell", true));
-                    }
-                    else
-                    {
-                        if (UseConsole)
-                        {
-                            readConsoleThread = new Thread(new ThreadStart(ReadConsole));
-                            readConsoleThread.Start();
-                        }
-                        waitHandle.Set();
-                    }
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_WINDOW_ADJUST:
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_DATA:
-                    {
-                        var msg = (SshChannelData)p;
-                        if (UseConsole)
-                            WriteConsole(msg.Data);
-                        else
-                            OutputStream.Write(msg.Data, 0, msg.Data.Length);
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_CLOSE:
-                case MessageCode.SSH_MSG_CHANNEL_EOF:
-                    if (UseConsole && readConsoleThread != null && readConsoleThread.IsAlive)
-                    {
-                        readConsoleThread.Abort();
-                        readConsoleThread.Join();
-                    }
-                    if (p.Code == MessageCode.SSH_MSG_CHANNEL_CLOSE)
-                    {
-                        if (!closeSent)
-                        {
-                            closeSent = true;
-                            session.Socket.WritePacket(new SshChannelClose(this.RemoteChannel));
-                            Close(StatusCode.OK);
-                        }
-                        waitHandle.Set();
-                    }
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_REQUEST:
-                    {
-                        var msg = (SshChannelRequest)p;
-                        return (msg.RequestType == "exit-signal");
-                    }
-            }
-            return false;
-        }
-
         private void WriteConsole(byte[] data)
         {
             if (RemoveTerminalEmulationCharacters)
@@ -141,7 +76,7 @@ namespace SSH.Processor
         {
             try
             {
-                while (UseConsole)
+                while (UseConsole && Thread.CurrentThread.ThreadState != System.Threading.ThreadState.Aborted)
                 {
                     var key = Console.ReadKey(true);
                     byte[] b = new byte[] { (byte)key.KeyChar };
@@ -152,6 +87,10 @@ namespace SSH.Processor
             {
                 Debug.WriteLine("ShellChannelProcessor thread aborted.");
                 Thread.ResetAbort();
+            }
+            finally
+            {
+                session.Socket.WritePacket(new SshChannelEOF(this.RemoteChannel));
             }
         }
 
@@ -184,5 +123,68 @@ namespace SSH.Processor
             var s = System.Text.Encoding.Default.GetString(str);
             return HandleTerminalChars(s).ToByteArray();
         }
+
+        public override void OnChannelOpenConfirmation(ISshChannelMessage p)
+        {
+            var msg = (SshChannelOpenConfirmation)p;
+            this.RemoteChannel = msg.SenderChannel;
+            session.Socket.WritePacket(new SshChannelRequestPty(this.RemoteChannel, "dumb", 80, 25, 640, 480, string.Empty));
+        }
+
+        public override void OnChannelOpenFailure(ISshChannelMessage p) { }
+
+        public override void OnChannelSuccess(ISshChannelMessage p)
+        {
+            if (!tty_opened)
+            {
+                tty_opened = true;
+                session.Socket.WritePacket(new SshChannelRequest(this.RemoteChannel, "shell", true));
+            }
+            else
+            {
+                if (UseConsole)
+                {
+                    readConsoleThread = new Thread(new ThreadStart(ReadConsole));
+                    readConsoleThread.Start();
+                }
+                waitHandle.Set();
+            }
+        }
+
+        public override void OnChannelWindowAdjust(ISshChannelMessage p) { }
+
+        public override void OnChannelData(ISshChannelMessage p)
+        {
+            var msg = (SshChannelData)p;
+            if (UseConsole)
+                WriteConsole(msg.Data);
+            else
+                OutputStream.Write(msg.Data, 0, msg.Data.Length);
+        }
+
+        public override void OnChannelExtendedData(ISshChannelMessage p) { }
+
+        public override void OnChannelClose(ISshChannelMessage p)
+        {
+            OnChannelEndOfFile(p);
+            if (!closeSent)
+            {
+                closeSent = true;
+                session.Socket.WritePacket(new SshChannelClose(this.RemoteChannel));
+                Close(StatusCode.OK);
+            }
+            waitHandle.Set();
+        }
+
+        public override void OnChannelEndOfFile(ISshChannelMessage p)
+        {
+            if (UseConsole && readConsoleThread != null && readConsoleThread.IsAlive)
+            {
+                readConsoleThread.Abort();
+                readConsoleThread.Join();
+            }
+        }
+
+        public override void OnChannelRequest(ISshChannelMessage p) { }
     }
 }

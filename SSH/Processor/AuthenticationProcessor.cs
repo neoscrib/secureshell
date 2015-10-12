@@ -62,10 +62,10 @@ namespace SSH.Processor
                     methods = Guess(methods, new string[] { "password" });
 
                 if ((previous == "password" && methods.Length > 0 && methods[0] == "password") ||
-                    (string.IsNullOrEmpty(session.Password) && methods.Length > 0 && methods[0] == "password"))
+                    (session.Password == null && methods.Length > 0 && methods[0] == "password"))
                     session.Password = session.PasswordFunction();
 
-                if (methods.Length > 0 && methods[0] == "password" && string.IsNullOrEmpty(session.Password))
+                if (methods.Length > 0 && methods[0] == "password" && session.Password == null)
                     methods = new string[] { };
             }
         }
@@ -113,7 +113,7 @@ namespace SSH.Processor
             {
                 files.Add(session.IdentityFile);
             }
-            else if (string.IsNullOrEmpty(session.Password = session.PasswordFunction()))
+            else if ((session.Password = session.PasswordFunction()) == null)
             {
                 var directory = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
                 directory = Path.Combine(directory, ".ssh");

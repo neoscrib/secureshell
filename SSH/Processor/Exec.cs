@@ -1,9 +1,8 @@
-﻿using System;
+﻿using SSH.IO;
+using SSH.Packets;
+using System;
 using System.IO;
 using System.Threading;
-using SSH.IO;
-using SSH.Packets;
-using System.Diagnostics;
 
 namespace SSH.Processor
 {
@@ -48,43 +47,39 @@ namespace SSH.Processor
             return ExitCode;
         }
 
-        public override bool InternalProcessPacket(ISshChannelMessage p)
+        public override void OnChannelOpenConfirmation(ISshChannelMessage p)
         {
-            switch (p.Code)
-            {
-                case MessageCode.SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
-                    {
-                        var msg = (SshChannelOpenConfirmation)p;
-                        this.RemoteChannel = msg.SenderChannel;
-                        waitHandle.Set();
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_SUCCESS:
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_WINDOW_ADJUST:
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_DATA:
-                    {
-                        var msg = (SshChannelData)p;
-                        StandardOut.Write(msg.Data, 0, msg.Data.Length);
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_EXTENDED_DATA:
-                    {
-                        var msg = (SshChannelExtendedData)p;
-                        StandardError.Write(msg.Data, 0, msg.Data.Length);
-                        return true;
-                    }
-                case MessageCode.SSH_MSG_CHANNEL_CLOSE:
-                    session.Socket.WritePacket(new SshChannelClose(this.RemoteChannel));
-                    waitHandle.Set();
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_EOF:
-                    return true;
-                case MessageCode.SSH_MSG_CHANNEL_REQUEST:
-                    return false;
-            }
-            return false;
+            var msg = (SshChannelOpenConfirmation)p;
+            this.RemoteChannel = msg.SenderChannel;
+            waitHandle.Set();
         }
+
+        public override void OnChannelOpenFailure(ISshChannelMessage p) { }
+
+        public override void OnChannelSuccess(ISshChannelMessage p) { }
+
+        public override void OnChannelWindowAdjust(ISshChannelMessage p) { }
+
+        public override void OnChannelData(ISshChannelMessage p)
+        {
+            var msg = (SshChannelData)p;
+            StandardOut.Write(msg.Data, 0, msg.Data.Length);
+        }
+
+        public override void OnChannelExtendedData(ISshChannelMessage p)
+        {
+            var msg = (SshChannelExtendedData)p;
+            StandardError.Write(msg.Data, 0, msg.Data.Length);
+        }
+
+        public override void OnChannelClose(ISshChannelMessage p)
+        {
+            session.Socket.WritePacket(new SshChannelClose(this.RemoteChannel));
+            waitHandle.Set();
+        }
+
+        public override void OnChannelEndOfFile(ISshChannelMessage p) { }
+
+        public override void OnChannelRequest(ISshChannelMessage p) { }
     }
 }

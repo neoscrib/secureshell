@@ -122,5 +122,15 @@ namespace SSH.MathEC
         {
             return base.GetHashCode();
         }
+
+        public static bool operator ==(ECPoint a, object b)
+        {
+            return a.Equals(b);
+        }
+
+        public static bool operator !=(ECPoint a, object b)
+        {
+            return !a.Equals(b);
+        }
     }
 }

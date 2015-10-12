@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using SSH.Packets;
+using System.Security;
+using System.Net;
 
 namespace SSH.IO
 {
@@ -118,6 +120,8 @@ namespace SSH.IO
                 this.WriteBytes(((string[])value).ToCSV());
             else if (type.Equals(typeof(string)))
                 this.WriteBytes((string)value);
+            else if (type.Equals(typeof(SecureString)))
+                ((SecureString)value).Consume(d => this.WriteString(d));
             else if (type.Equals(typeof(byte[])))
             {
                 if (p.Attributes.Raw)

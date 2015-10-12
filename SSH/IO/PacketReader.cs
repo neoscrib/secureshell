@@ -12,7 +12,7 @@ namespace SSH.IO
         public long Position { get { return BaseStream.Position; } set { BaseStream.Position = value; } }
         public long Length { get { return BaseStream.Length; } }
 
-        public PacketReader(Stream s) : base(s) { }
+        public PacketReader(Stream s) : base(s, System.Text.Encoding.UTF8, true) { }
 
         public PacketReader(byte[] data) : base(new MemoryStream(data)) { }
 

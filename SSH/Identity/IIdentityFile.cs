@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Security;
 using System.Security.Cryptography;
 
 namespace SSH.Identity
@@ -9,7 +10,7 @@ namespace SSH.Identity
         bool Encrypted { get; set; }
         AsymmetricAlgorithm Algorithm { get; set; }
         string AlgorithmName { get; }
-        Func<IIdentityFile, string> PassphraseFunction { get; set; }
+        Func<IIdentityFile, SecureString> PassphraseFunction { get; set; }
         byte[] PublicKey { get; }
         byte[] Process();
         void Decrypt();

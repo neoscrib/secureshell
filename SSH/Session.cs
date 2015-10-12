@@ -8,6 +8,7 @@ using SSH.IO;
 using SSH.Packets;
 using SSH.Processor;
 using System.Net;
+using System.Security;
 
 namespace SSH
 {
@@ -15,22 +16,22 @@ namespace SSH
     {
         private int port = 22;
 
-        private Func<string> passwordFunction = () => { return null; };
-        internal string Password { get; set; }
+        private Func<SecureString> passwordFunction = () => { return null; };
+        internal SecureString Password { get; set; }
 
         public string Hostname { get; set; }
         public int Port { get { return port; } set { port = value; } }
         public string Username { get; set; }
-        public Func<string> PasswordFunction { get { return passwordFunction; } set { passwordFunction = value; } }
-        public Func<IIdentityFile, string> PassphraseFunction { get; set; }
+        public Func<SecureString> PasswordFunction { get { return passwordFunction; } set { passwordFunction = value; } }
+        public Func<IIdentityFile, SecureString> PassphraseFunction { get; set; }
         public string IdentityFile { get; set; }
+        public bool UseCompression { get; set; }
 
         public Func<string, string, byte[], bool> ConfirmUnknownHostDelegate { get { return KnownHosts.ConfirmUnknownHostDelegate; } set { KnownHosts.ConfirmUnknownHostDelegate = value; } }
         public bool ConfirmUnknownHosts { get { return KnownHosts.ConfirmUnknownHosts; } set { KnownHosts.ConfirmUnknownHosts = value; } }
         public bool StrictHostKeyChecking { get { return KnownHosts.StrictHostKeyChecking; } set { KnownHosts.StrictHostKeyChecking = value; } }
 
         internal byte[] SessionId { get; set; }
-        internal byte[][] Keys { get; set; }
 
         internal KeyExchangeProcessor KexProcessor { get; set; }
         internal IPacketProcessor SystemProcessor { get; set; }
@@ -45,6 +46,8 @@ namespace SSH
         public SshKeyExchangeInit Algorithms { get { return KexProcessor.ClientKexInit; } }
         public KnownHosts KnownHosts { get; set; }
 
+        public bool IsAuthenticated { get; set; }
+
         internal uint NextChannel { get; set; }
 
         internal StatusCode VerifyHostKey(byte[] ServerHostKey)
@@ -55,7 +58,6 @@ namespace SSH
         public Session()
         {
             Disposables = new List<IDisposable>();
-            Keys = new byte[6][];
             Processors = new SessionProcessor(this);
             KnownHosts = new KnownHosts();
         }
@@ -80,6 +82,7 @@ namespace SSH
 
                 var auth = new AuthenticationProcessor(this);
                 auth.Wait();
+                IsAuthenticated = auth.StatusCode == StatusCode.OK;
                 return auth.StatusCode;
             }
             return code;
@@ -87,7 +90,7 @@ namespace SSH
 
         public void Disconnect(SshDisconnect.SshDisconnectReason reasonCode = SshDisconnect.SshDisconnectReason.SSH_DISCONNECT_BY_APPLICATION, string reason = "")
         {
-            for (int i = 0; i < this.Processors.Count; )
+            for (int i = 0; i < this.Processors.Count; i++)
                 this.Processors[i].Close();
             for (int i = 0; i < this.Disposables.Count; i++)
                 this.Disposables[i].Dispose();
@@ -101,28 +104,28 @@ namespace SSH
                 GetCustomAttributes(typeof(DescriptionAttribute), false).Cast<DescriptionAttribute>().Single().Description;
         }
 
-        public static string ConsolePasswordFunction()
+        public static SecureString ConsolePasswordFunction()
         {
             return ConsolePrompt("Password: ", true);
         }
 
-        public static string ConsolePassphraseFunction(IIdentityFile identity)
+        public static SecureString ConsolePassphraseFunction(IIdentityFile identity)
         {
             return ConsolePrompt("Passphrase: ", true);
         }
 
-        public static string ConsolePrompt(string prompt, bool mask = false)
+        public static SecureString ConsolePrompt(string prompt, bool mask = false)
         {
             Console.Write(prompt);
-            string p = string.Empty;
+            var x = new SecureString();
             var key = Console.ReadKey(mask);
             while (key.Key != ConsoleKey.Enter)
             {
-                p += key.KeyChar;
-                key = Console.ReadKey(true);
+                x.AppendChar(key.KeyChar);
+                key = Console.ReadKey(mask);
             }
             Console.WriteLine();
-            return p;
+            return x;
         }
 
         public Shell CreateShell(bool useConsole = false, bool removeTerminalEmulationCharacters = true)
@@ -157,7 +160,14 @@ namespace SSH
 
         public void Dispose()
         {
-            Disconnect();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+                Disconnect();
         }
     }
 }

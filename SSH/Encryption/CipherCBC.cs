@@ -17,21 +17,19 @@ namespace SSH.Encryption
             var IV = iv.Take(BlockSize).ToArray();
             var Key = key.Take(KeySize).ToArray();
 
-            Cipher2 = Mode == CipherMode.Encryption ? 
+            CryptoTransform = Mode == CipherMode.Encryption ? 
                 Crypto.CreateEncryptor(Key, IV) : 
                 Crypto.CreateDecryptor(Key, IV);
         }
 
         public override void Transform(byte[] input)
         {
-            //byte[] buffer = new byte[input.Length];
-            Cipher2.TransformBlock(input, 0, input.Length, input, 0);
-            //return buffer;
+            CryptoTransform.TransformBlock(input, 0, input.Length, input, 0);
         }
 
         public override byte[] TransformFinal(byte[] input)
         {
-            return Cipher2.TransformFinalBlock(input, 0, input.Length);
+            return CryptoTransform.TransformFinalBlock(input, 0, input.Length);
         }
     }
 }

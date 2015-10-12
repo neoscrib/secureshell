@@ -2,12 +2,14 @@
 using SSH.DiffieHellman;
 using SSH.IO;
 using SSH.Packets;
+using SSH.Curve25519;
+using System.Security.Cryptography;
 
 namespace SSH.Processor
 {
     class ECDHProcessor : DiffieHellmanProcessor
     {
-        private ECDiffieHellmanManaged ecdh;
+        private ECDiffieHellman ecdh;
         private byte[] ServerPublicKey;
 
         public ECDHProcessor(Session session)
@@ -35,10 +37,16 @@ namespace SSH.Processor
         public override void Initialize()
         {
             var kexAlgorithm = session.Algorithms.KexAlgorithms[0];
-            var keySize = kexAlgorithm.EndsWith("256") ? 256 :
-                kexAlgorithm.EndsWith("384") ? 384 : 521;
 
-            ecdh = new ECDiffieHellmanManaged(keySize);
+            switch (kexAlgorithm)
+            {
+                case "curve25519-sha256@libssh.org": ecdh = new Curve25519Managed(); break;
+                case "ecdh-sha2-nistp521": ecdh = new ECDiffieHellmanManaged(MathEC.ECCurve.secp521r1); break;
+                case "ecdh-sha2-nistp384": ecdh = new ECDiffieHellmanManaged(MathEC.ECCurve.secp384r1); break;
+                case "ecdh-sha2-nistp256":
+                default: ecdh = new ECDiffieHellmanManaged(MathEC.ECCurve.secp256r1); break;
+            }
+
             var ecdhInit = new SshECDHKexInit(ecdh.PublicKey.ToByteArray());
             session.Socket.WritePacket(ecdhInit);
         }

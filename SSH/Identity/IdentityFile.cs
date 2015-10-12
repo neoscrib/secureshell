@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security;
 using System.Security.Cryptography;
 
 namespace SSH.Identity
@@ -25,7 +26,7 @@ namespace SSH.Identity
             }
         }
 
-        public Func<IIdentityFile, string> PassphraseFunction { get; set; }
+        public Func<IIdentityFile, SecureString> PassphraseFunction { get; set; }
 
         public abstract byte[] PublicKey { get; }
 

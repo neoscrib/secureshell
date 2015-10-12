@@ -1,16 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using SSH.Attributes;
+using System;
 using System.Linq;
-using System.Security.Cryptography;
-using SSH.DiffieHellman;
-using SSH.IO;
-using SSH.Processor;
 using System.Reflection;
-using SSH.Attributes;
+using System.Security.Cryptography;
 
 namespace SSH.Encryption
 {
-    abstract class Cipher
+    abstract class Cipher : ICryptoTransform
     {
         private static CipherAttribute[] types;
 
@@ -18,10 +14,11 @@ namespace SSH.Encryption
         public virtual int BlockSize { get { return 0; } }
         public virtual int KeySize { get { return 0; } }
 
+        internal virtual ICryptoTransform CryptoTransform { get; set; }
         internal virtual Type CryptoType { get; private set; }
-
         internal virtual SymmetricAlgorithm Crypto { get; set; }
-        internal virtual ICryptoTransform Cipher2 { get; set; }
+
+        public static string[] Algorithms { get { return types.Where(a => a.Negotiable).Select(a => a.Name).ToArray(); } }
 
         static Cipher()
         {
@@ -37,35 +34,40 @@ namespace SSH.Encryption
         }
 
         public abstract void Initialize(CipherMode mode, byte[] key, byte[] iv, PaddingMode padding = PaddingMode.None);
-
         public abstract void Transform(byte[] input);
-
         public abstract byte[] TransformFinal(byte[] input);
-
-        public static Cipher Create(string cipher, CipherMode mode, Type hashType, byte[] sharedSecret, byte[] exchangeHash, byte[] key, byte[] iv)
-        {
-            Cipher c = Create(cipher);
-
-            if (c != null)
-            {
-                var key2 = KeyExchangeProcessor.ExpandKey(key, sharedSecret, exchangeHash, c.KeySize, hashType);
-                var iv2 = KeyExchangeProcessor.ExpandKey(iv, sharedSecret, exchangeHash, c.BlockSize, hashType);
-                c.Initialize(mode, key2, iv2);
-            }
-            return c;
-        }
 
         public static Cipher Create(string cipher)
         {
             return (Cipher)Activator.CreateInstance(types.Where(a => a.Name == cipher).Single().Type);
         }
 
-        public static string[] Algorithms
+        // ICryptoTransform implementation
+
+        public int TransformBlock(byte[] inputBuffer, int inputOffset, int inputCount, byte[] outputBuffer, int outputOffset)
         {
-            get
-            {
-                return types.Where(a => a.Negotiable).Select(a => a.Name).ToArray();
-            }
+            var buffer = new byte[inputCount];
+            Buffer.BlockCopy(inputBuffer, inputOffset, buffer, 0, inputCount);
+            Transform(buffer);
+            Buffer.BlockCopy(buffer, 0, outputBuffer, outputOffset, inputCount);
+            return inputCount;
         }
+
+        public byte[] TransformFinalBlock(byte[] inputBuffer, int inputOffset, int inputCount)
+        {
+            var buffer = new byte[inputCount];
+            Buffer.BlockCopy(inputBuffer, inputOffset, buffer, 0, inputCount);
+            return TransformFinal(buffer);
+        }
+
+        public void Dispose()
+        {
+            CryptoTransform.Dispose();
+        }
+
+        public int InputBlockSize { get { return CryptoTransform.InputBlockSize; } }
+        public int OutputBlockSize { get { return CryptoTransform.OutputBlockSize; } }
+        public bool CanTransformMultipleBlocks { get { return CryptoTransform.CanTransformMultipleBlocks; } }
+        public bool CanReuseTransform { get { return CryptoTransform.CanReuseTransform; } }
     }
 }
