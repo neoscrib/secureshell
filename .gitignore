@@ -1,3 +1,6 @@
 SSH/bin
 SSH/obj
+SshTestApplication/bin
+SshTestApplication/obj
 *.suo
+*.sdf

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Win32.SafeHandles;
 using System;
 using System.IO;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
@@ -12,9 +13,9 @@ namespace SSH.Compression
     internal static class ZLibNative
     {
         internal static readonly IntPtr ZNullPtr = (IntPtr)0;
-        public const string ZLibNativeDllName = "clrcompression.dll";
+        public const string ZLibNativeDllName = "zlibwapi.dll";
         private const string Kernel32DllName = "kernel32.dll";
-        public const string ZLibVersion = "1.2.3";
+        public const string ZLibVersion = "1.2.8";
         public const int Deflate_DefaultWindowBits = -15;
         public const int Deflate_DefaultMemLevel = 8;
 
@@ -479,9 +480,9 @@ namespace SSH.Compression
                 private static void LoadZLibDLL()
                 {
                     new FileIOPermission(PermissionState.Unrestricted).Assert();
-                    string str = Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), "clrcompression.dll");
+                    string str = Path.Combine(Environment.CurrentDirectory, ZLibNativeDllName);
                     if (!File.Exists(str))
-                        throw new DllNotFoundException("clrcompression.dll");
+                        throw new DllNotFoundException(ZLibNativeDllName);
                     ZLibNative.SafeLibraryHandle safeLibraryHandle = ZLibNative.NativeMethods.LoadLibrary(str);
                     if (safeLibraryHandle.IsInvalid)
                     {
@@ -496,7 +497,7 @@ namespace SSH.Compression
                 {
                     IntPtr procAddress = ZLibNative.NativeMethods.GetProcAddress(ZLibNative.ZLibStreamHandle.zlibLibraryHandle, entryPointName);
                     if (IntPtr.Zero == procAddress)
-                        throw new EntryPointNotFoundException("clrcompression.dll!" + entryPointName);
+                        throw new EntryPointNotFoundException(string.Format("{0}!{1}", ZLibNativeDllName, entryPointName));
                     return (DT)Marshal.GetDelegateForFunctionPointer<DT>(procAddress);
                 }
 
