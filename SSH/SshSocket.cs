@@ -5,6 +5,7 @@ using SSH.IO;
 using SSH.Packets;
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Sockets;
@@ -16,7 +17,7 @@ namespace SSH
     class SshSocket : IDisposable
     {
         TcpClient socket;
-        MetricsStream st;
+        Stream st;
         PacketWriter pw;
         PacketReader pr;
 
@@ -70,7 +71,11 @@ namespace SSH
             if (!success) return SSH.StatusCode.ConnectionTimedOut;
             if (!socket.Connected) return SSH.StatusCode.ConnectionRefused;
 
+#if DEBUG
             st = new MetricsStream(socket.GetStream());
+#else
+            st = socket.GetStream();
+#endif
             pr = new PacketReader(st);
             pw = new PacketWriter(st);
 
@@ -99,8 +104,10 @@ namespace SSH
             }
 
             socket.Close();
+#if DEBUG
             Debug.WriteLine("Transferred: Sent {0}; Received {1}",
-                Util.ToHumanReadableSize(st.BytesWritten), Util.ToHumanReadableSize(st.BytesRead));
+                Util.ToHumanReadableSize(((MetricsStream)st).BytesWritten), Util.ToHumanReadableSize(((MetricsStream)st).BytesRead));
+#endif
         }
 
         private void ProcessTransmitQueue()

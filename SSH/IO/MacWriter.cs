@@ -48,7 +48,15 @@ namespace SSH.IO
 
         public bool IsMatch(byte[] mac)
         {
-            return Win32.NativeMethods.memcmp(mac, Hash, BlockSize) == 0;
+            var hash = this.Hash;
+            if (mac.Length != BlockSize || hash.Length != BlockSize)
+                return false;
+            for (var i = 0; i < BlockSize; i++)
+            {
+                if (mac[i] != hash[i])
+                    return false;
+            }
+            return true;
         }
 
         public static MacWriter Create(string name, byte[] key)

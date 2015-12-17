@@ -9,7 +9,6 @@ namespace SSH.Win32
 {
     public static class NativeMethods
     {
-        [DllImport("msvcrt.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int memcmp(byte[] b1, byte[] b2, long count);
+
     }
 }

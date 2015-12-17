@@ -148,13 +148,13 @@ namespace SSH.Processor
 
         public string[] GetDirectories(string path)
         {
-            return GetFiles(path, fi => fi.IsDirectory);
+            return GetFiles(path, fi => fi.IsDirectory && fi.Name != "." && fi.Name != "..");
         }
 
         public string[] GetFiles(string path, params Func<SftpFileInfo, bool>[] filters)
         {
             var filesInfo = GetFilesInfo(path, filters);
-            var files = filesInfo.Select(fi => fi.Name).ToArray();
+            var files = filesInfo.Select(fi => fi.FullName).ToArray();
             return files;
         }
 
@@ -253,12 +253,26 @@ namespace SSH.Processor
 
         public Stream Open(string path, FileMode fileMode)
         {
-            return Open(path, fileMode, "", null);
+            try
+            {
+                return Open(path, fileMode, "", null);
+            }
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
         }
 
         public Stream Open(string path, FileMode fileMode, string permissions)
         {
-            return Open(path, fileMode, permissions, null);
+            try
+            {
+                return Open(path, fileMode, permissions, null);
+            }
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
         }
 
         public Stream Open(string path, FileMode fileMode, string permissions, ulong? bytesToRead)
@@ -267,67 +281,77 @@ namespace SSH.Processor
             var waitHandle = CreateWaitHandle(out requestId);
             Stream s;
 
-            switch (fileMode)
+            try
             {
-                case FileMode.OpenOrCreate:
-                case FileMode.Append:
-                    {
-                        try
+                switch (fileMode)
+                {
+                    case FileMode.OpenOrCreate:
+                    case FileMode.Append:
                         {
-                            var fi = GetFileInfo(path);
-                            session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_WRITE | FileModeFlags.SSH_FXF_APPEND, permissions));
-                            waitHandle.WaitOne();
-                            var handle = ((SftpHandle)waitHandle.Result).Handle;
-                            s = new SftpStream(this, handle);
-                            ((SftpStream)s).SetLength(s.Position = (long)fi.Length);
+                            try
+                            {
+                                var fi = GetFileInfo(path);
+                                session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_WRITE | FileModeFlags.SSH_FXF_APPEND, permissions));
+                                waitHandle.WaitOne();
+                                var handle = ((SftpHandle)waitHandle.Result).Handle;
+                                s = new SftpStream(this, handle);
+                                ((SftpStream)s).SetLength(s.Position = (long)fi.Length);
+                            }
+                            catch (FileNotFoundException)
+                            {
+                                session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_CREAT | FileModeFlags.SSH_FXF_WRITE, permissions));
+                                waitHandle.WaitOne();
+                                var handle = ((SftpHandle)waitHandle.Result).Handle;
+                                s = new SftpStream(this, handle);
+                            }
                         }
-                        catch (FileNotFoundException)
+                        break;
+                    case FileMode.Create:
                         {
                             session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_CREAT | FileModeFlags.SSH_FXF_WRITE, permissions));
                             waitHandle.WaitOne();
                             var handle = ((SftpHandle)waitHandle.Result).Handle;
                             s = new SftpStream(this, handle);
                         }
-                    }
-                    break;
-                case FileMode.Create:
-                    {
-                        session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_CREAT | FileModeFlags.SSH_FXF_WRITE, permissions));
-                        waitHandle.WaitOne();
-                        var handle = ((SftpHandle)waitHandle.Result).Handle;
-                        s = new SftpStream(this, handle);
-                    }
-                    break;
-                case FileMode.CreateNew:
-                    {
-                        session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_CREAT | FileModeFlags.SSH_FXF_WRITE | FileModeFlags.SSH_FXF_EXCL, permissions));
-                        waitHandle.WaitOne();
-                        var handle = ((SftpHandle)waitHandle.Result).Handle;
-                        s = new SftpStream(this, handle);
-                    }
-                    break;
-                case FileMode.Open:
-                    {
-                        var length = bytesToRead ?? GetFileInfo(path).Length;
-                        session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_READ, permissions));
-                        waitHandle.WaitOne();
-                        var handle = ((SftpHandle)waitHandle.Result).Handle;
-                        s = new SftpStream(this, handle, length);
-                    }
-                    break;
-                case FileMode.Truncate:
-                    {
-                        session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_CREAT | FileModeFlags.SSH_FXF_TRUNC | FileModeFlags.SSH_FXF_WRITE, permissions));
-                        waitHandle.WaitOne();
-                        var handle = ((SftpHandle)waitHandle.Result).Handle;
-                        s = new SftpStream(this, handle);
-                    }
-                    break;
-                default:
-                    s = Stream.Null;
-                    break;
+                        break;
+                    case FileMode.CreateNew:
+                        {
+                            session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_CREAT | FileModeFlags.SSH_FXF_WRITE | FileModeFlags.SSH_FXF_EXCL, permissions));
+                            waitHandle.WaitOne();
+                            var handle = ((SftpHandle)waitHandle.Result).Handle;
+                            s = new SftpStream(this, handle);
+                        }
+                        break;
+                    case FileMode.Open:
+                        {
+                            var length = bytesToRead ?? GetFileInfo(path).Length;
+                            session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_READ, permissions));
+                            waitHandle.WaitOne();
+                            var handle = ((SftpHandle)waitHandle.Result).Handle;
+                            s = new SftpStream(this, handle, length);
+                        }
+                        break;
+                    case FileMode.Truncate:
+                        {
+                            session.Socket.WritePacket(new SftpOpen(this.RemoteChannel, requestId, path, FileModeFlags.SSH_FXF_CREAT | FileModeFlags.SSH_FXF_TRUNC | FileModeFlags.SSH_FXF_WRITE, permissions));
+                            waitHandle.WaitOne();
+                            var handle = ((SftpHandle)waitHandle.Result).Handle;
+                            s = new SftpStream(this, handle);
+                        }
+                        break;
+                    default:
+                        s = Stream.Null;
+                        break;
+                }
             }
-            DestroyWaitHandle(requestId);
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
+            finally
+            {
+                DestroyWaitHandle(requestId);
+            }
             return s;
         }
 
