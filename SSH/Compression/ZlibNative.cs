@@ -13,7 +13,11 @@ namespace SSH.Compression
     internal static class ZLibNative
     {
         internal static readonly IntPtr ZNullPtr = (IntPtr)0;
+#if LINUX
+        public const string ZLibNativeDllName = "zlib.so";
+#else
         public const string ZLibNativeDllName = "zlibwapi.dll";
+#endif
         private const string Kernel32DllName = "kernel32.dll";
         public const string ZLibVersion = "1.2.8";
         public const int Deflate_DefaultWindowBits = -15;
@@ -98,6 +102,7 @@ namespace SSH.Compression
 
         internal struct ZStream
         {
+#pragma warning disable 0649
             internal IntPtr nextIn;
             internal uint availIn;
             internal uint totalIn;
@@ -112,6 +117,7 @@ namespace SSH.Compression
             internal int dataType;
             internal uint adler;
             internal uint reserved;
+#pragma warning restore 0649
         }
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -151,21 +157,42 @@ namespace SSH.Compression
 
         private class NativeMethods
         {
+#if LINUX
             [SuppressUnmanagedCodeSecurity]
             [SecurityCritical]
-            [DllImport("kernel32.dll", CharSet = CharSet.Ansi, BestFitMapping = false)]
-            internal static extern IntPtr GetProcAddress(ZLibNative.SafeLibraryHandle moduleHandle, string procName);
+            [DllImport("libdl.so", EntryPoint = "dlopen")]
+            private static extern ZLibNative.SafeLibraryHandle LoadLibrary(String libPath, int flags);
+            internal static ZLibNative.SafeLibraryHandle LoadLibrary(String libPath)
+            {
+                return LoadLibrary(libPath, 0x02);
+            }
 
+            [SuppressUnmanagedCodeSecurity]
+            [SecurityCritical]
+            [DllImport("libdl.so", EntryPoint = "dlsym")]
+            internal static extern IntPtr GetProcAddress(ZLibNative.SafeLibraryHandle moduleHandle, String procName);
+
+            [SuppressUnmanagedCodeSecurity]
+            [SecurityCritical]
+            [DllImport("libdl.so", EntryPoint = "dlclose")]
+            internal static extern bool FreeLibrary(IntPtr moduleHandle);
+#else
             [SuppressUnmanagedCodeSecurity]
             [SecurityCritical]
             [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
             internal static extern ZLibNative.SafeLibraryHandle LoadLibrary(string libPath);
+
+            [SuppressUnmanagedCodeSecurity]
+            [SecurityCritical]
+            [DllImport("kernel32.dll", CharSet = CharSet.Ansi, BestFitMapping = false)]
+            internal static extern IntPtr GetProcAddress(ZLibNative.SafeLibraryHandle moduleHandle, string procName);
 
             [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
             [SuppressUnmanagedCodeSecurity]
             [SecurityCritical]
             [DllImport("kernel32.dll")]
             internal static extern bool FreeLibrary(IntPtr moduleHandle);
+#endif
         }
 
         [SecurityCritical]
@@ -498,7 +525,7 @@ namespace SSH.Compression
                     IntPtr procAddress = ZLibNative.NativeMethods.GetProcAddress(ZLibNative.ZLibStreamHandle.zlibLibraryHandle, entryPointName);
                     if (IntPtr.Zero == procAddress)
                         throw new EntryPointNotFoundException(string.Format("{0}!{1}", ZLibNativeDllName, entryPointName));
-                    return (DT)Marshal.GetDelegateForFunctionPointer<DT>(procAddress);
+                    return (DT)((Object)Marshal.GetDelegateForFunctionPointer(procAddress, typeof(DT)));
                 }
 
                 [SecuritySafeCritical]

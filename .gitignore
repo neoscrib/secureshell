@@ -4,3 +4,4 @@ SshTestApplication/bin
 SshTestApplication/obj
 *.suo
 *.sdf
+*.opensdf
