@@ -3,5 +3,17 @@ contrib/vstudio/vc11/Debug
 contrib/vstudio/vc11/Release
 contrib/vstudio/vc11/x86
 contrib/vstudio/vc11/x64
+*.o
+*.lo
+
+configure.log
+example
+example64
+examplesh
+libz.a
+libz.so*
+minigzip*
+zlib.pc
+
 
 

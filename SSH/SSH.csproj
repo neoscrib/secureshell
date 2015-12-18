@@ -167,7 +167,10 @@
     <Compile Include="Processor\IChannelProcessor.cs" />
     <Compile Include="Processor\IdentificationProcessor.cs" />
     <Compile Include="Collections\BlockingQueue.cs" />
+    <Compile Include="DiffieHellman\ECDiffieHellmanPublicKey.cs" />
     <Compile Include="DiffieHellman\ECDiffieHellmanManaged.cs" />
+    <Compile Include="DiffieHellman\ECDiffieHellman.cs" />
+    <Compile Include="DiffieHellman\ECDsa.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="IO\NotifyStream.cs" />
     <Compile Include="MathEC\FpBigInteger.cs" />
@@ -231,7 +234,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy "$(SolutionDir)zlib\contrib\vstudio\vc11\x86\ZlibDll$(ConfigurationName)\zlibwapi.dll" "$(TargetDir)"</PostBuildEvent>
+    <PostBuildEvent Condition=" '$(OS)' == 'Windows_NT' ">copy "$(SolutionDir)zlib\contrib\vstudio\vc11\x86\ZlibDll$(ConfigurationName)\zlibwapi.dll" "$(TargetDir)"</PostBuildEvent>
+    <PostBuildEvent Condition=" '$(OS)' == 'Unix' ">cp "$(SolutionDir)zlib/libz.so" "$(TargetDir)"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
