@@ -5,3 +5,4 @@ SshTestApplication/obj
 *.suo
 *.sdf
 *.opensdf
+.idea
